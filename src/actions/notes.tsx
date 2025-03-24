@@ -32,24 +32,18 @@ export async function createNoteAction() {
 // UPDATE NOTE (unchanged, using Prisma or Supabase)
 export async function updateNoteAction(noteId: string, content: string) {
   try {
-    console.log("Updating note:", noteId, "Content:", content); // Debug log
+    console.log("Attempting update:", { noteId, content }); // Debug log
     
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("notes")
-      .update({ 
-        content: content, 
-        updatedAt: new Date().toISOString() 
-      })
-      .eq("id", noteId)
-      .select(); // Add .select() to return updated data
-
-    if (error) throw error;
+      .update({ content })
+      .eq("id", noteId);
     
-    console.log("Update result:", data); // Debug log
-    return { errorMessage: null };
-  } catch (error: any) {
-    console.error("Update failed:", error); // Debug log
-    return { errorMessage: error.message };
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error("Update error:", error);
+    return handleError(error);
   }
 }
 
