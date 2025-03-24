@@ -1,5 +1,3 @@
-
-
 import NewNoteButton from "@/components/NewNoteButton";
 import NoteTextInput from "@/components/NoteTextInput";
 import prisma from "@/db/prisma";
@@ -16,7 +14,9 @@ async function HomePage({ searchParams }: Props) {
   let note = null;
   try {
     note = noteId
-      ? await prisma.notes.findUnique({ where: { id: noteId } })
+      ? await prisma.notes.findFirst({
+          where: { id: noteId },
+        })
       : null;
   } catch (error) {
     console.error("Database error:", error);
@@ -25,7 +25,7 @@ async function HomePage({ searchParams }: Props) {
   return (
     <div className="flex h-full w-full flex-col items-center gap-5">
       <div className="flex w-full max-w-4xl justify-left gap-2">
-        <NewNoteButton  />
+        <NewNoteButton />
       </div>
       <NoteTextInput
         noteId={noteId}

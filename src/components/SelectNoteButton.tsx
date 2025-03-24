@@ -1,41 +1,48 @@
 "use client";
-
-import useNote from "@/hooks/useNote";
-import { notes } from "@prisma/client";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
 type Props = {
-  note: notes;
+  note: {
+    id: string;
+    content: string;
+    created_at: string;
+  };
 };
 
 function SelectNoteButton({ note }: Props) {
   const noteId = useSearchParams().get("noteId") || "";
-  const { noteText: selectedNoteText } = useNote();
-  const [localNoteText, setLocalNoteText] = useState(note.content || "");
 
-  useEffect(() => {
-    if (noteId === note.id) {
-      setLocalNoteText(selectedNoteText);
-    }
-  }, [selectedNoteText, noteId, note.id]);
+  // Directly use note.content instead of local state
+  const getDisplayText = () => {
+    // Handle empty content explicitly
+    if (!note.content.trim()) return "New Note";
+    
+    const firstLine = note.content
+      .trim()
+      .split('\n')
+      .find(line => line.trim().length > 0);
 
-  // Only show "New Note" if there's truly no content
-  const displayText = (localNoteText || selectedNoteText || "").trim() 
-    ? (localNoteText || selectedNoteText).substring(0, 20) 
-    : "";
+    return firstLine 
+      ? firstLine.substring(0, 40) 
+      : "New Note";
+  };
 
   return (
     <Link 
       href={`/?noteId=${note.id}`} 
-      className={`flex-1 pr-6 ${note.id === noteId ? "text-blue-500" : ""}`}
+      className={`flex-1 pr-6 ${note.id === noteId ? "text-primary font-medium" : "text-muted-foreground"}`}
     >
-      <div className="w-full overflow-hidden">
-        <span className="mr-2">{note.id === noteId && "→"}</span>
-        {displayText ? (
-          <span className="truncate">{displayText}</span>
-        ) : null}
+      <div className="flex items-center justify-between w-full p-2">
+        <div className="flex items-center">
+          <span className="mr-2">{note.id === noteId && "→"}</span>
+          <span className="truncate">
+            {getDisplayText()}
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground ml-2">
+          {new Date(note.created_at).toLocaleDateString()}
+        </span>
       </div>
     </Link>
   );
