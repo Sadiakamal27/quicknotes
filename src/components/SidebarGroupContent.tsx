@@ -1,5 +1,6 @@
 "use client";
 
+import { Note } from "@prisma/client";
 import {
   SidebarGroupContent as SidebarGroupContentShadCN,
   SidebarMenu,
@@ -11,105 +12,56 @@ import { useEffect, useMemo, useState } from "react";
 import Fuse from "fuse.js";
 import SelectNoteButton from "./SelectNoteButton";
 import DeleteNoteButton from "./DeleteNoteButton";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-type Note = {
-  id: string;
-  content: string;
-  created_at: string;
+type Props = {
+  notes: Note[];
 };
 
-function SidebarGroupContent() {
+function SidebarGroupContent({ notes }: Props) {
   const [searchText, setSearchText] = useState("");
-  const [notes, setNotes] = useState<Note[]>([]);
-  const supabase = createClientComponentClient();
+  const [localNotes, setLocalNotes] = useState(notes);
 
-  // Fetch initial notes and setup realtime
   useEffect(() => {
-    const fetchInitialNotes = async () => {
-      const { data, error } = await supabase
-        .from("notes")
-        .select("*")
-        .order("created_at", { ascending: false });
+    setLocalNotes(notes);
+  }, [notes]);
 
-      if (data) setNotes(data);
-      if (error) console.error("Error fetching notes:", error);
-    };
-
-    fetchInitialNotes();
-
-    // Realtime subscription
-    const channel = supabase
-      .channel("realtime-notes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notes",
-        },
-        (payload) => {
-          switch (payload.eventType) {
-            case "INSERT":
-              setNotes(prev => [payload.new as Note, ...prev]);
-              break;
-              case "UPDATE":
-                setNotes(prev => prev.map(existingNote => 
-                  existingNote.id === payload.new.id ? 
-                  { ...existingNote, ...payload.new } : // Merge updates
-                  existingNote
-                ));
-                break;
-              break;
-            case "DELETE":
-              setNotes(prev => prev.filter(note => 
-                note.id !== payload.old.id
-              ));
-              break;
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase]);
-
-  // Search functionality
-  const fuse = useMemo(() => new Fuse(notes, {
-    keys: ["content"],
-    threshold: 0.4,
-  }), [notes]);
+  const fuse = useMemo(() => {
+    return new Fuse(localNotes, {
+      keys: ["text"],
+      threshold: 0.4,
+    });
+  }, [localNotes]);
 
   const filteredNotes = searchText
-    ? fuse.search(searchText).map(result => result.item)
-    : notes;
+    ? fuse.search(searchText).map((result) => result.item)
+    : localNotes;
 
-  // Handle local deletion
   const deleteNoteLocally = (noteId: string) => {
-    setNotes(prev => prev.filter(note => note.id !== noteId));
+    setLocalNotes((prevNotes) =>
+      prevNotes.filter((note) => note.id !== noteId),
+    );
   };
 
   return (
     <SidebarGroupContentShadCN>
-      <div className="relative flex items-center p-4">
-        <SearchIcon className="absolute left-6 size-4" />
+      <div className="relative flex items-center">
+        <SearchIcon className="absolute left-2 size-4" />
         <Input
-          className="bg-muted pl-10"
-          placeholder="Search notes..."
+          className="bg-muted pl-8"
+          placeholder="Search your notes..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
         />
       </div>
 
-      <SidebarMenu className="px-2">
-        {filteredNotes.map(note => (
-          <SidebarMenuItem key={note.id} className="group/item hover:bg-accent">
+      <SidebarMenu className="mt-4">
+        {filteredNotes.map((note) => (
+          <SidebarMenuItem key={note.id} className="group/item">
             <SelectNoteButton note={note} />
-            <DeleteNoteButton 
-              noteId={note.id} 
-              deleteNoteLocally={deleteNoteLocally} 
+
+            <DeleteNoteButton
+              noteId={note.id}
+              deleteNoteLocally={deleteNoteLocally}
             />
           </SidebarMenuItem>
         ))}

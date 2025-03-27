@@ -1,66 +1,56 @@
 "use server";
-import { createClient } from "@supabase/supabase-js";
-import { v4 as uuidv4 } from "uuid";
+
+import { getUser } from "@/components/auth/server";
+import { prisma } from "@/db/prisma";
 import { handleError } from "@/lib/utils";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-// In notes.tsx
-export async function createNoteAction() {
+export const createNoteAction = async (noteId: string) => {
   try {
-    const newId = uuidv4();
-    console.log("Creating note with ID:", newId);
-    
-    const { data, error } = await supabase
-      .from("notes")
-      .insert([{ 
-        id: newId,
-        content: "New note..." 
-      }])
-      .select();
+    const user = await getUser();
+    if (!user) throw new Error("You must be logged in to create a note");
 
-    if (error) throw error;
-    return { id: data![0].id };
-  } catch (error) {
-    return handleError(error);
-  }
-}
-
-// UPDATE NOTE (unchanged, using Prisma or Supabase)
-export async function updateNoteAction(noteId: string, content: string) {
-  try {
-    console.log("Attempting update:", { noteId, content }); // Debug log
-    
-    const { error } = await supabase
-      .from("notes")
-      .update({ content })
-      .eq("id", noteId);
-    
-    if (error) throw error;
-    return { success: true };
-  } catch (error) {
-    console.error("Update error:", error);
-    return handleError(error);
-  }
-}
-
-// DELETE NOTE (unchanged, using Prisma or Supabase)
-export const deleteNoteAction = async (noteId: string) => {
-  try {
-    const { error } = await supabase
-      .from("notes")
-      .delete()
-      .eq("id", noteId);
-
-    if (error) {
-      throw new Error(error.message);
-    }
+    await prisma.note.create({
+      data: {
+        id: noteId,
+        authorId: user.id,
+        text: "",
+      },    });
 
     return { errorMessage: null };
   } catch (error) {
     return handleError(error);
   }
 };
+
+export const updateNoteAction = async (noteId: string, text: string) => {
+  try {
+    const user = await getUser();
+    if (!user) throw new Error("You must be logged in to update a note");
+
+    await prisma.note.update({
+      where: { id: noteId },
+      data: { text },
+    });
+
+    return { errorMessage: null };
+  } catch (error) {
+    return handleError(error);
+  }
+};
+
+export const deleteNoteAction = async (noteId: string) => {
+  try {
+    const user = await getUser();
+    if (!user) throw new Error("You must be logged in to delete a note");
+
+    await prisma.note.delete({
+      where: { id: noteId, authorId: user.id },
+    });
+
+    return { errorMessage: null };
+  } catch (error) {
+    return handleError(error);
+  }
+};
+
+  

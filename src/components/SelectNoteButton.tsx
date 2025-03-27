@@ -1,50 +1,57 @@
 "use client";
+
+import useNote from "@/hooks/useNote";
+import { Note } from "@prisma/client";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { SidebarMenuButton } from "./ui/sidebar";
 import Link from "next/link";
 
 type Props = {
-  note: {
-    id: string;
-    content: string;
-    created_at: string;
-  };
+  note: Note;
 };
 
 function SelectNoteButton({ note }: Props) {
   const noteId = useSearchParams().get("noteId") || "";
 
-  // Directly use note.content instead of local state
-  const getDisplayText = () => {
-    // Handle empty content explicitly
-    if (!note.content.trim()) return "New Note";
-    
-    const firstLine = note.content
-      .trim()
-      .split('\n')
-      .find(line => line.trim().length > 0);
+  const { noteText: selectedNoteText } = useNote();
+  const [shouldUseGlobalNoteText, setShouldUseGlobalNoteText] = useState(false);
+  const [localNoteText, setLocalNoteText] = useState(note.text);
 
-    return firstLine 
-      ? firstLine.substring(0, 40) 
-      : "New Note";
-  };
+  useEffect(() => {
+    if (noteId === note.id) {
+      setShouldUseGlobalNoteText(true);
+    } else {
+      setShouldUseGlobalNoteText(false);
+    }
+  }, [noteId, note.id]);
+
+  useEffect(() => {
+    if (shouldUseGlobalNoteText) {
+      setLocalNoteText(selectedNoteText);
+    }
+  }, [selectedNoteText, shouldUseGlobalNoteText]);
+
+  const blankNoteText = "EMPTY NOTE";
+  let noteText = localNoteText || blankNoteText;
+  if (shouldUseGlobalNoteText) {
+    noteText = selectedNoteText || blankNoteText;
+  }
 
   return (
-    <Link 
-      href={`/?noteId=${note.id}`} 
-      className={`flex-1 pr-6 ${note.id === noteId ? "text-primary font-medium" : "text-muted-foreground"}`}
+    <SidebarMenuButton
+      asChild
+      className={`items-start gap-0 pr-12 ${note.id === noteId && "bg-sidebar-accent/50"}`}
     >
-      <div className="flex items-center justify-between w-full p-2">
-        <div className="flex items-center">
-          <span className="mr-2">{note.id === noteId && "→"}</span>
-          <span className="truncate">
-            {getDisplayText()}
-          </span>
-        </div>
-        <span className="text-xs text-muted-foreground ml-2">
-          {new Date(note.created_at).toLocaleDateString()}
-        </span>
-      </div>
-    </Link>
+      <Link href={`/?noteId=${note.id}`} className="flex h-fit flex-col">
+        <p className="w-full overflow-hidden truncate text-ellipsis whitespace-nowrap">
+          {noteText}
+        </p>
+        <p className="text-muted-foreground text-xs">
+          {note.updatedAt.toLocaleDateString()}
+        </p>
+      </Link>
+    </SidebarMenuButton>
   );
 }
 

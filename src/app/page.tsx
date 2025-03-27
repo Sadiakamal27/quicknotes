@@ -1,36 +1,33 @@
+import { getUser } from "@/components/auth/server";
 import NewNoteButton from "@/components/NewNoteButton";
 import NoteTextInput from "@/components/NoteTextInput";
-import prisma from "@/db/prisma";
+import { prisma } from "@/db/prisma";
 
 type Props = {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 async function HomePage({ searchParams }: Props) {
-  const noteId = Array.isArray(searchParams.noteId)
-    ? searchParams.noteId[0]
-    : searchParams.noteId || "";
+  const noteIdParam = (await searchParams).noteId;
+  const user = await getUser();
 
-  let note = null;
-  try {
-    note = noteId
-      ? await prisma.notes.findFirst({
-          where: { id: noteId },
-        })
-      : null;
-  } catch (error) {
-    console.error("Database error:", error);
-  }
+  const noteId = Array.isArray(noteIdParam)
+    ? noteIdParam![0]
+    : noteIdParam || "";
+
+  const note = await prisma.note.findUnique({
+    where: { id: noteId, authorId: user?.id },
+  });
 
   return (
-    <div className="flex h-full w-full flex-col items-center gap-5">
-      <div className="flex w-full max-w-4xl justify-left gap-2">
-        <NewNoteButton />
+    <div className="flex h-full flex-col items-center gap-4">
+      <div className="flex w-full max-w-4xl justify-end gap-2">
+        
+        <NewNoteButton user={user} />
       </div>
-      <NoteTextInput
-        noteId={noteId}
-        startingNoteText={note?.content || ""}
-      />
+
+      <NoteTextInput noteId={noteId} startingNoteText={note?.text || ""} />
+
     </div>
   );
 }
